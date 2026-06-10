@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#09090b">
+  <meta name="description" content="The Where Did I Put It Vault — log stashed items via voice, fully offline.">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>The Where Did I Put It Vault</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2310b981'/%3E%3Cpath d='M16 8a4 4 0 0 0-4 4v2h-1a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2h-1v-2a4 4 0 0 0-4-4zm-2 6v-2a2 2 0 1 1 4 0v2h-4z' fill='%23fff'/%3E%3C/svg%3E">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="ambient-bg" aria-hidden="true">
+    <div class="ambient-bg__grid"></div>
+    <div class="ambient-bg__glow ambient-bg__glow--1"></div>
+    <div class="ambient-bg__glow ambient-bg__glow--2"></div>
+  </div>
+  <div id="app" class="app">
+    <header class="header" role="banner">
+      <div class="header__brand">
+        <svg class="header__lock-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <rect x="5" y="11" width="14" height="10" rx="2" stroke="currentColor" stroke-width="1.75"/>
+          <path d="M8 11V8a4 4 0 0 1 8 0v3" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
+          <circle cx="12" cy="16" r="1.5" fill="currentColor"/>
+        </svg>
+        <div class="header__titles">
+          <h1 class="header__title">The Vault</h1>
+          <p class="header__subtitle">Where Did I Put It</p>
+        </div>
+      </div>
+      <div class="header__actions">
+        <span id="persistence-badge" class="persistence-badge persistence-badge--hidden" aria-live="polite">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M12 2L4 6v6c0 5.25 3.5 10 8 12 4.5-2 8-6.75 8-12V6l-8-4z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+            <path d="M9 12l2 2 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          Data Local &amp; Encrypted
+        </span>
+        <button id="install-button" class="install-button install-button--hidden" type="button" aria-label="Install app">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M12 3v12M8 11l4 4 4-4M5 21h14" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+        <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Toggle light and dark theme">
+          <svg class="theme-toggle__icon theme-toggle__icon--sun" width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="1.75"/>
+            <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
+          </svg>
+          <svg class="theme-toggle__icon theme-toggle__icon--moon" width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M21 14.5A8.5 8.5 0 1 1 9.5 3a6.5 6.5 0 0 0 11.5 11.5z" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round"/>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <main class="main" role="main">
+      <section class="search-module" aria-label="Search stashed items">
+        <div class="search-bar">
+          <svg class="search-bar__icon" width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="1.75"/>
+            <path d="M20 20l-3.5-3.5" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
+          </svg>
+          <input
+            id="search-input"
+            class="search-bar__input"
+            type="search"
+            placeholder="Search items or locations…"
+            autocomplete="off"
+            spellcheck="false"
+            aria-label="Search stashed items"
+            aria-controls="search-results"
+            aria-expanded="false"
+          >
+          <button id="search-clear" class="search-bar__clear search-bar__clear--hidden" type="button" aria-label="Clear search">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </button>
+        </div>
+        <div id="search-results" class="search-results search-results--hidden" role="listbox" aria-label="Search results"></div>
+      </section>
+
+      <section class="visualizer-card" aria-label="Voice visualizer" aria-live="polite">
+        <div class="visualizer-card__header">
+          <span id="engine-state" class="engine-state engine-state--ready">System Ready</span>
+          <span id="engine-label" class="engine-label">Native Speech Engine</span>
+        </div>
+        <div id="transcript-display" class="transcript-display">
+          <span class="transcript-display__placeholder">Tap the record button and say where you put something…</span>
+        </div>
+        <div id="audio-bars" class="audio-bars audio-bars--hidden" aria-hidden="true">
+          <span class="audio-bars__bar"></span>
+          <span class="audio-bars__bar"></span>
+          <span class="audio-bars__bar"></span>
+          <span class="audio-bars__bar"></span>
+          <span class="audio-bars__bar"></span>
+          <span class="audio-bars__bar"></span>
+          <span class="audio-bars__bar"></span>
+        </div>
+        <div id="parse-preview" class="parse-preview parse-preview--hidden" aria-live="polite">
+          <span class="parse-preview__label">Parsed</span>
+          <span id="parse-preview-item" class="parse-preview__item"></span>
+          <svg class="parse-preview__arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <span id="parse-preview-location" class="parse-preview__location"></span>
+        </div>
+      </section>
+
+      <div class="record-zone">
+        <div id="record-ripple" class="record-ripple" aria-hidden="true">
+          <span class="record-ripple__ring record-ripple__ring--1"></span>
+          <span class="record-ripple__ring record-ripple__ring--2"></span>
+          <span class="record-ripple__ring record-ripple__ring--3"></span>
+        </div>
+        <button id="record-button" class="record-button" type="button" aria-label="Start voice recording" aria-pressed="false">
+          <svg class="record-button__icon record-button__icon--mic" width="32" height="32" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <rect x="9" y="3" width="6" height="11" rx="3" stroke="currentColor" stroke-width="1.75"/>
+            <path d="M5 11a7 7 0 0 0 14 0M12 18v3M8 21h8" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
+          </svg>
+          <svg class="record-button__icon record-button__icon--stop" width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor"/>
+          </svg>
+        </button>
+        <div class="record-zone__actions">
+          <button id="manual-entry-button" class="record-zone__manual" type="button" aria-label="Manual text entry">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Type instead
+          </button>
+        </div>
+        <p class="record-zone__hint">Hold to record · Tap to toggle · <kbd>/</kbd> search</p>
+      </div>
+
+      <section class="data-actions" aria-label="Data management">
+        <button id="backup-button" class="data-action-btn" type="button">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M12 3v12M8 11l4 4 4-4M5 21h14" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          Backup Data
+        </button>
+        <label class="data-action-btn data-action-btn--import" for="import-input">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M12 21V9M16 13l-4-4-4 4M5 3h14" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          Import Data
+          <input id="import-input" class="visually-hidden" type="file" accept="application/json,.json">
+        </label>
+      </section>
+
+      <section class="history-dashboard" aria-label="Stashed items history">
+        <div class="history-dashboard__header">
+          <h2 class="history-dashboard__title">Stash History</h2>
+          <span id="history-count" class="history-dashboard__count">0 items</span>
+        </div>
+        <div id="history-stats" class="history-stats history-stats--hidden">
+          <span id="stat-locations" class="history-stats__chip">0 locations</span>
+          <span id="stat-recent" class="history-stats__chip">—</span>
+        </div>
+        <ul id="history-list" class="history-list" role="list"></ul>
+        <div id="history-empty" class="history-empty">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <rect x="4" y="4" width="16" height="16" rx="3" stroke="currentColor" stroke-width="1.5" opacity="0.4"/>
+            <path d="M8 12h8M12 8v8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity="0.4"/>
+          </svg>
+          <p>No items stashed yet</p>
+          <p class="history-empty__sub">Try saying one of these:</p>
+          <div class="example-chips" role="list">
+            <button class="example-chip" type="button" data-example="I put the keys in the kitchen drawer">Keys → kitchen drawer</button>
+            <button class="example-chip" type="button" data-example="Passport is inside the safe">Passport → safe</button>
+            <button class="example-chip" type="button" data-example="Screwdriver - garage toolbox">Screwdriver → garage</button>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <div id="manual-input-overlay" class="manual-overlay manual-overlay--hidden" role="dialog" aria-modal="true" aria-labelledby="manual-overlay-title">
+      <div class="manual-overlay__backdrop"></div>
+      <div class="manual-overlay__panel">
+        <div class="manual-overlay__header">
+          <h2 id="manual-overlay-title" class="manual-overlay__title">Manual Entry</h2>
+          <button id="manual-overlay-close" class="manual-overlay__close" type="button" aria-label="Close manual entry">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </button>
+        </div>
+        <p class="manual-overlay__desc">Voice unavailable. Type where you put something — e.g. "keys in the kitchen drawer".</p>
+        <textarea
+          id="manual-input"
+          class="manual-overlay__textarea"
+          rows="3"
+          placeholder="I put the keys in the kitchen drawer…"
+          aria-label="Manual stash entry"
+        ></textarea>
+        <button id="manual-submit" class="manual-overlay__submit" type="button">Save to Vault</button>
+      </div>
+    </div>
+
+    <div id="toast-container" class="toast-container" aria-live="assertive" aria-atomic="true"></div>
+  </div>
+
+  <script src="app.js" defer></script>
+</body>
+</html>
