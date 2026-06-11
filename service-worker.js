@@ -1,6 +1,6 @@
 'use strict';
 
-const CACHE_VERSION = 'vault-cache-v4'; // Bumped version to overwrite previous attempts
+const CACHE_VERSION = 'vault-cache-v5'; // Bumped version to break old cache states
 const STATIC_CACHE_NAME = `${CACHE_VERSION}-static`;
 
 const STATIC_ASSETS = [
@@ -47,7 +47,7 @@ function normalizeRequestUrl(requestUrl) {
   return null;
 }
 
-// 1. Install Event - Cache all essential assets
+// 1. Install Event - Cache assets securely
 self.addEventListener('install', function onInstall(event) {
   event.waitUntil(
     caches.open(STATIC_CACHE_NAME).then(function onCacheOpen(cache) {
@@ -58,7 +58,7 @@ self.addEventListener('install', function onInstall(event) {
   );
 });
 
-// 2. Activate Event - Clean up old caches completely
+// 2. Activate Event - Clear past invalid caches
 self.addEventListener('activate', function onActivate(event) {
   event.waitUntil(
     caches.keys().then(function onCacheKeys(cacheNames) {
@@ -75,64 +75,59 @@ self.addEventListener('activate', function onActivate(event) {
   );
 });
 
-// 3. Fetch Event - Intercept safely with redirect fallback handling
+// 3. Fetch Event - Safely intercept and handle Cloudflare routing redirects
 self.addEventListener('fetch', function onFetch(event) {
-  const request = event.request;
+  let request = event.request;
 
-  // Skip non-GET requests
+  // Skip anything that isn't a local GET request
   if (request.method !== 'GET') {
     return;
   }
 
   const requestUrl = new URL(request.url);
-
-  // Skip cross-origin requests
   if (requestUrl.origin !== self.location.origin) {
     return;
   }
 
+  // FIX: If the request is locked to manual redirect mode (like a main page refresh/navigation),
+  // unpack it into a clean request clone that is allowed to follow Cloudflare redirects.
+  if (request.redirect === 'manual') {
+    request = new Request(request.url, {
+      method: request.method,
+      headers: request.headers,
+      mode: request.mode === 'navigate' ? 'cors' : request.mode, // Fallback safely from strict navigate constraints
+      credentials: request.credentials,
+      redirect: 'follow'
+    });
+  }
+
   const normalizedPath = normalizeRequestUrl(request.url);
 
-  // Handle local assets not mapped in normalizer (like favicons or background noise)
+  // Unrecognized local asset? Let it go directly to the network with its new 'follow' properties
   if (!normalizedPath) {
-    event.respondWith(
-      fetch(request).catch(function() {
-        // Safe fallback for strict redirect modes (Cloudflare Pages environments)
-        if (request.redirect === 'manual') {
-          return fetch(new Request(request.url, { redirect: 'follow' }));
-        }
-      })
-    );
+    event.respondWith(fetch(request));
     return;
   }
 
-  // Handle cached assets
+  // Handle caching lifecycle
   event.respondWith(
     caches.match(normalizedPath).then(function onCacheMatch(cachedResponse) {
       if (cachedResponse) {
         return cachedResponse;
       }
 
-      // If missing from cache, fetch from network with redirect fallback safety
-      return fetch(request).catch(function onFirstFetchError() {
-        if (request.redirect === 'manual') {
-          return fetch(new Request(request.url, { redirect: 'follow' }));
-        }
-        throw new Error('Network request failed');
-      }).then(function onNetworkResponse(networkResponse) {
+      return fetch(request).then(function onNetworkResponse(networkResponse) {
         if (!networkResponse || networkResponse.status !== 200 || networkResponse.type === 'error') {
           return networkResponse;
         }
 
         const responseClone = networkResponse.clone();
-
         caches.open(STATIC_CACHE_NAME).then(function onCacheOpen(cache) {
           cache.put(normalizedPath, responseClone);
         });
 
         return networkResponse;
       }).catch(function onFetchError() {
-        // Fallback to index if completely offline and cache breaks
         return caches.match('/index.html');
       });
     })
