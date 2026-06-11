@@ -14,4 +14,4 @@ Regex pattern for location and thing, no framework HTML/CSS/JS, and a lighting f
 PWA installation is fully supported.   
 
 ## Licensing
-BSD-3-Clause License. 
+MIT License. 
