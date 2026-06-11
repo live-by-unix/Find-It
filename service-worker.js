@@ -1,6 +1,6 @@
 'use strict';
 
-const CACHE_VERSION = 'vault-cache-v3'; // Bumped version to force an upgrade
+const CACHE_VERSION = 'vault-cache-v4'; // Bumped version to overwrite previous attempts
 const STATIC_CACHE_NAME = `${CACHE_VERSION}-static`;
 
 const STATIC_ASSETS = [
@@ -75,39 +75,51 @@ self.addEventListener('activate', function onActivate(event) {
   );
 });
 
-// 3. Fetch Event - Intercept, serve from cache, or fall back safely to network
+// 3. Fetch Event - Intercept safely with redirect fallback handling
 self.addEventListener('fetch', function onFetch(event) {
   const request = event.request;
 
-  // Skip non-GET requests (like POST requests)
+  // Skip non-GET requests
   if (request.method !== 'GET') {
     return;
   }
 
   const requestUrl = new URL(request.url);
 
-  // Skip cross-origin requests (let them pass to the internet normally)
+  // Skip cross-origin requests
   if (requestUrl.origin !== self.location.origin) {
     return;
   }
 
   const normalizedPath = normalizeRequestUrl(request.url);
 
-
+  // Handle local assets not mapped in normalizer (like favicons or background noise)
   if (!normalizedPath) {
-    event.respondWith(fetch(request));
+    event.respondWith(
+      fetch(request).catch(function() {
+        // Safe fallback for strict redirect modes (Cloudflare Pages environments)
+        if (request.redirect === 'manual') {
+          return fetch(new Request(request.url, { redirect: 'follow' }));
+        }
+      })
+    );
     return;
   }
 
+  // Handle cached assets
   event.respondWith(
     caches.match(normalizedPath).then(function onCacheMatch(cachedResponse) {
-      // If asset is found in cache, serve it instantly
       if (cachedResponse) {
         return cachedResponse;
       }
 
-      // If not in cache, fetch it from the network
-      return fetch(request).then(function onNetworkResponse(networkResponse) {
+      // If missing from cache, fetch from network with redirect fallback safety
+      return fetch(request).catch(function onFirstFetchError() {
+        if (request.redirect === 'manual') {
+          return fetch(new Request(request.url, { redirect: 'follow' }));
+        }
+        throw new Error('Network request failed');
+      }).then(function onNetworkResponse(networkResponse) {
         if (!networkResponse || networkResponse.status !== 200 || networkResponse.type === 'error') {
           return networkResponse;
         }
@@ -120,7 +132,7 @@ self.addEventListener('fetch', function onFetch(event) {
 
         return networkResponse;
       }).catch(function onFetchError() {
-        // Fallback to index.html if the user is completely offline and cache misses
+        // Fallback to index if completely offline and cache breaks
         return caches.match('/index.html');
       });
     })
