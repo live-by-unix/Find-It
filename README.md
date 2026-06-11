@@ -4,7 +4,7 @@
 
 ## Usage   
 The app is pretty explanatory, but for voice and type mode you need to speak in this format:   
-<thing> in <place>, or something similar, so if I have a jar and want it on the table, I would say "jar on table".  
+<thing> in <place>, or something similar, so if I have a jar and want it on the table, I would say "jar is on table".  
 For type mode, you would type the same thing.   
 
 ## Tech Stack 
